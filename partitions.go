@@ -25,7 +25,7 @@ import (
 )
 
 func PartitionsData() []byte {
-	cmd := exec.Command("sinfo", "-h", "-o%R,%C")
+	cmd := exec.Command("sinfo", "-h", "-o%R,%a,%C")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -62,6 +62,7 @@ type PartitionMetrics struct {
 	other     float64
 	pending   float64
 	total     float64
+	state     string
 }
 
 func ParsePartitionsMetrics() map[string]*PartitionMetrics {
@@ -75,7 +76,9 @@ func ParsePartitionsMetrics() map[string]*PartitionMetrics {
 			if !key {
 				partitions[partition] = &PartitionMetrics{0, 0, 0, 0, 0}
 			}
-			states := strings.Split(line, ",")[1]
+			state := strings.Split(line, ",")[1]
+			partitions[partition].state = state
+			states := strings.Split(line, ",")[2]
 			allocated, _ := strconv.ParseFloat(strings.Split(states, "/")[0], 64)
 			idle, _ := strconv.ParseFloat(strings.Split(states, "/")[1], 64)
 			other, _ := strconv.ParseFloat(strings.Split(states, "/")[2], 64)
@@ -108,7 +111,7 @@ type PartitionsCollector struct {
 }
 
 func NewPartitionsCollector() *PartitionsCollector {
-	labels := []string{"partition"}
+	labels := []string{"partition", "state"}
 	return &PartitionsCollector{
 		allocated: prometheus.NewDesc("slurm_partition_cpus_allocated", "Allocated CPUs for partition", labels, nil),
 		idle:      prometheus.NewDesc("slurm_partition_cpus_idle", "Idle CPUs for partition", labels, nil),
@@ -130,19 +133,19 @@ func (pc *PartitionsCollector) Collect(ch chan<- prometheus.Metric) {
 	pm := ParsePartitionsMetrics()
 	for p := range pm {
 		if pm[p].allocated > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.allocated, prometheus.GaugeValue, pm[p].allocated, p)
+			ch <- prometheus.MustNewConstMetric(pc.allocated, prometheus.GaugeValue, pm[p].allocated, p, pm[p].state)
 		}
 		if pm[p].idle > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.idle, prometheus.GaugeValue, pm[p].idle, p)
+			ch <- prometheus.MustNewConstMetric(pc.idle, prometheus.GaugeValue, pm[p].idle, p, pm[p].state)
 		}
 		if pm[p].other > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.other, prometheus.GaugeValue, pm[p].other, p)
+			ch <- prometheus.MustNewConstMetric(pc.other, prometheus.GaugeValue, pm[p].other, p, pm[p].state)
 		}
 		if pm[p].pending > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.pending, prometheus.GaugeValue, pm[p].pending, p)
+			ch <- prometheus.MustNewConstMetric(pc.pending, prometheus.GaugeValue, pm[p].pending, p, pm[p].state)
 		}
 		if pm[p].total > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.total, prometheus.GaugeValue, pm[p].total, p)
+			ch <- prometheus.MustNewConstMetric(pc.total, prometheus.GaugeValue, pm[p].total, p, pm[p].state)
 		}
 	}
 }
