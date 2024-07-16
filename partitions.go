@@ -56,6 +56,8 @@ func PartitionsPendingJobsData() []byte {
 	return out
 }
 
+var StateUnknown string = "unknown"
+
 type PartitionMetrics struct {
 	allocated float64
 	idle      float64
@@ -74,7 +76,7 @@ func ParsePartitionsMetrics() map[string]*PartitionMetrics {
 			partition := strings.Split(line, ",")[0]
 			_, key := partitions[partition]
 			if !key {
-				partitions[partition] = &PartitionMetrics{0, 0, 0, 0, 0}
+				partitions[partition] = &PartitionMetrics{0, 0, 0, 0, 0, StateUnknown}
 			}
 			state := strings.Split(line, ",")[1]
 			partitions[partition].state = state
